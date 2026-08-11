@@ -1,0 +1,891 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="theme-color" content="#0B2E33">
+<title>Bus Wala — Horn OK Please</title>
+<meta name="description" content="A highway jukebox styled after a decorated Indian bus, streaming a playlist you control from Supabase.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚌</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: { diesel: '#0B2E33', board: '#061618', marigold: '#F4A300', chili: '#D42E12', tassel: '#E23E85', chrome: '#C9D6D9' },
+        fontFamily: { display: ['"Yatra One"', 'cursive'], sans: ['Mukta', 'sans-serif'] }
+      }
+    }
+  };
+</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="min-h-screen text-chrome font-sans overflow-x-hidden">
+
+<div class="scene" aria-hidden="true"><div class="scene-photo"></div></div>
+<div class="scene-scrim" aria-hidden="true"></div>
+
+<header class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-2 px-4 sm:px-6 py-3 flex-wrap">
+  <div class="flex items-center gap-2">
+    <span class="text-xl" aria-hidden="true">🚌</span>
+    <span lang="hi" class="font-display text-lg sm:text-xl bg-gradient-to-r from-marigold via-chili to-tassel bg-clip-text text-transparent">बस वाला</span>
+  </div>
+  <div class="flex items-center gap-2 flex-wrap justify-end">
+    <button id="btn-share" class="pill-btn" aria-label="Share this song" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
+      <span class="hidden sm:inline">Share</span>
+    </button>
+    <span class="pill-badge">
+      <span class="relative flex h-2 w-2">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+      </span>
+      <span><span id="onboard-count">1</span> <span class="hidden sm:inline">on board</span></span>
+    </span>
+    <button id="btn-expand" class="icon-btn" aria-label="Open full player" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+    </button>
+    <span id="clock" class="clock-text">--:--</span>
+  </div>
+</header>
+
+<div id="app">
+
+  <main id="ambient-view" class="min-h-screen flex items-end justify-center pt-24 pb-16 sm:pb-20 px-4">
+    <h2 class="sr-only">Now playing</h2>
+    <div id="ambient-pill" class="ambient-pill">
+      <span id="cover-mini" class="cover-mini" aria-hidden="true">🚍</span>
+      <button id="btn-play-mini" aria-label="Play" class="play-mini hover:scale-105 active:scale-95 transition">
+        <svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <div class="flex flex-col min-w-0 max-w-[42vw] sm:max-w-xs">
+        <p id="now-title-mini" class="truncate text-sm font-semibold">Loading…</p>
+        <p id="now-artist-mini" class="truncate text-xs text-chrome/60"></p>
+      </div>
+      <button id="btn-expand-mini" aria-label="Open full player" aria-expanded="false" class="expand-mini hover:scale-105 active:scale-95 transition">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+      </button>
+    </div>
+  </main>
+
+  <div id="expanded-view" class="hidden fixed inset-0 z-40 bg-diesel/70 backdrop-blur-sm overflow-y-auto pt-24 pb-10 px-4" aria-hidden="true">
+    <div class="max-w-5xl mx-auto">
+
+      <div class="flex justify-end mb-3">
+        <button id="btn-collapse" aria-label="Close player" class="icon-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <header class="text-center mb-5">
+        <p lang="hi" class="text-sm tracking-wide text-tassel/90 mb-1">हॉर्न ओके प्लीज़</p>
+        <h1 class="font-display text-4xl sm:text-5xl">
+          <span lang="hi" class="bg-gradient-to-r from-marigold via-chili to-tassel bg-clip-text text-transparent">बस वाला</span>
+        </h1>
+        <p class="text-chrome/60 text-sm sm:text-base mt-1">Bus Wala — Highway Hits On Demand</p>
+      </header>
+
+      <div class="board rounded-lg px-3 py-2 overflow-hidden mb-6 border border-marigold/20" aria-hidden="true">
+        <div id="marquee" class="marquee-track font-mono text-[11px] sm:text-sm tracking-widest uppercase text-marigold">Loading the route…</div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6 items-start">
+
+        <section id="player-card" class="chrome-edge tilt-card rounded-3xl p-6 sm:p-8 text-center">
+          <div class="mx-auto mb-1 h-6 w-px bg-chrome/30"></div>
+          <div id="cover" class="ornament paused mx-auto h-32 w-32 sm:h-40 sm:w-40 rounded-full bg-black/30 bg-cover bg-center ring-4 ring-marigold/50 shadow-2xl flex items-center justify-center text-5xl">🚍</div>
+          <div id="youtube-wrap" class="youtube-wrap hidden mt-5">
+            <div class="youtube-audio-shell">
+              <div class="youtube-source-line">
+                <span class="youtube-dot"></span>
+                <span>YOUTUBE AUDIO</span>
+                <a id="youtube-open" href="#" target="_blank" rel="noopener">Open</a>
+              </div>
+              <div id="youtube-player" class="youtube-player" aria-label="YouTube playback"></div>
+            </div>
+          </div>
+          <h2 id="now-title" class="font-display text-2xl sm:text-3xl mt-4 truncate">Loading…</h2>
+          <p id="now-artist" class="text-chrome/60 text-sm mt-1 truncate">&nbsp;</p>
+
+          <div class="mt-6">
+            <div id="track-bar" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" class="relative h-3 rounded-full road cursor-pointer">
+              <div id="progress-fill" class="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-marigold to-chili" style="width:0%"></div>
+              <div id="bus-marker" class="absolute -top-2 h-7 w-7 -translate-x-1/2 text-lg leading-7 text-center pointer-events-none" style="left:0%">🚌</div>
+            </div>
+            <div class="flex justify-between text-[11px] text-chrome/50 mt-2">
+              <span id="time-current">0:00</span>
+              <span id="time-duration">0:00</span>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-center gap-3 sm:gap-5 mt-6">
+            <button id="btn-shuffle" aria-label="Shuffle" title="Shuffle" class="text-chrome/60 hover:text-marigold transition">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+            </button>
+            <button id="btn-prev" aria-label="Previous track" class="text-chrome hover:text-marigold transition">
+              <svg viewBox="0 0 24 24" fill="currentColor" class="h-6 w-6"><path d="M7 5h2v14H7zM19 5 9 12l10 7z"/></svg>
+            </button>
+            <button id="btn-play" aria-label="Play" class="h-14 w-14 rounded-full bg-gradient-to-r from-marigold to-chili text-diesel flex items-center justify-center shadow-lg">
+              <svg viewBox="0 0 24 24" fill="currentColor" class="h-6 w-6"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+            <button id="btn-next" aria-label="Next track" class="text-chrome hover:text-marigold transition">
+              <svg viewBox="0 0 24 24" fill="currentColor" class="h-6 w-6"><path d="M15 5h2v14h-2zM5 5l10 7-10 7z"/></svg>
+            </button>
+            <button id="btn-repeat" aria-label="Repeat" title="Repeat: off" class="text-chrome/60 hover:text-marigold transition">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+            </button>
+          </div>
+
+          <div class="flex items-center justify-center gap-6 mt-6">
+            <button id="btn-horn" aria-label="Sound the horn" class="flex flex-col items-center text-chili hover:scale-105 active:scale-95 transition">
+              <span class="text-2xl leading-none">📯</span>
+              <span class="text-[9px] tracking-widest mt-1 text-chrome/50">HORN OK PLEASE</span>
+            </button>
+            <label class="flex items-center gap-2">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-chrome/50"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>
+              <input id="volume" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume" class="w-20 accent-marigold">
+            </label>
+          </div>
+
+          <div class="flex items-center justify-center gap-2 mt-4">
+            <span class="text-sm" aria-hidden="true">🌙</span>
+            <select id="sleep-timer" aria-label="Sleep timer" class="bg-white/10 backdrop-blur-sm border border-white/15 rounded-lg text-xs px-2 py-1 outline-none focus-visible:ring-2 focus-visible:ring-marigold text-chrome">
+              <option value="0">No sleep timer</option>
+              <option value="15">15 min</option>
+              <option value="30">30 min</option>
+              <option value="45">45 min</option>
+              <option value="60">60 min</option>
+            </select>
+            <span id="sleep-remaining" class="text-[11px] text-chrome/50"></span>
+          </div>
+        </section>
+
+        <aside class="chrome-edge rounded-3xl p-5 sm:p-6">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-display text-xl">Route Manifest</h2>
+            <span id="track-count" class="text-xs text-chrome/50">0 stops</span>
+          </div>
+          <input id="search" type="search" placeholder="Search the manifest…" aria-label="Search tracks" class="w-full mb-3 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 px-3 py-2 text-sm placeholder-chrome/40 outline-none focus-visible:ring-2 focus-visible:ring-marigold">
+          <ul id="manifest-list" class="space-y-1 max-h-[420px] overflow-y-auto pr-1"></ul>
+        </aside>
+
+      </div>
+
+      <footer class="text-center text-xs text-chrome/40 mt-10">
+        Your own playlist, streamed off Supabase.
+      </footer>
+
+    </div>
+  </div>
+
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script>window.__bwYoutubeReady = false; window.onYouTubeIframeAPIReady = () => { window.__bwYoutubeReady = true; };</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+const ICONS = {
+  play: '<svg viewBox="0 0 24 24" fill="currentColor" class="h-6 w-6"><path d="M8 5v14l11-7z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="currentColor" class="h-6 w-6"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
+  playMini: '<svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4"><path d="M8 5v14l11-7z"/></svg>',
+  pauseMini: '<svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>'
+};
+const SHARE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>';
+
+const audio = new Audio();
+let tracks = [], order = [], pos = 0, shuffleOn = false, repeatMode = 'off', filterQuery = '';
+let youtubePlayer = null;
+let youtubeTimer = null;
+let youtubeSearchTimer = null;
+let youtubeSearchInFlight = false;
+let lastYoutubeQuery = '';
+let youtubeSearchResults = [];
+let currentSource = 'supabase';
+
+const els = {
+  app: document.getElementById('app'),
+  ambientView: document.getElementById('ambient-view'),
+  expandedView: document.getElementById('expanded-view'),
+  clock: document.getElementById('clock'),
+  btnShare: document.getElementById('btn-share'),
+  btnExpand: document.getElementById('btn-expand'),
+  btnExpandMini: document.getElementById('btn-expand-mini'),
+  btnCollapse: document.getElementById('btn-collapse'),
+  coverMini: document.getElementById('cover-mini'),
+  titleMini: document.getElementById('now-title-mini'),
+  artistMini: document.getElementById('now-artist-mini'),
+  btnPlayMini: document.getElementById('btn-play-mini'),
+  cover: document.getElementById('cover'),
+  title: document.getElementById('now-title'),
+  artist: document.getElementById('now-artist'),
+  bar: document.getElementById('track-bar'),
+  fill: document.getElementById('progress-fill'),
+  marker: document.getElementById('bus-marker'),
+  curTime: document.getElementById('time-current'),
+  durTime: document.getElementById('time-duration'),
+  btnPlay: document.getElementById('btn-play'),
+  btnPrev: document.getElementById('btn-prev'),
+  btnNext: document.getElementById('btn-next'),
+  btnShuffle: document.getElementById('btn-shuffle'),
+  btnRepeat: document.getElementById('btn-repeat'),
+  btnHorn: document.getElementById('btn-horn'),
+  volume: document.getElementById('volume'),
+  search: document.getElementById('search'),
+  manifest: document.getElementById('manifest-list'),
+  trackCount: document.getElementById('track-count'),
+  marquee: document.getElementById('marquee'),
+  onboard: document.getElementById('onboard-count'),
+  sleepSelect: document.getElementById('sleep-timer'),
+  sleepRemaining: document.getElementById('sleep-remaining'),
+  toast: document.getElementById('toast'),
+  playerCard: document.getElementById('player-card'),
+  youtubeWrap: document.getElementById('youtube-wrap'),
+  youtubePlayer: document.getElementById('youtube-player'),
+  youtubeOpen: document.getElementById('youtube-open'),
+};
+
+init();
+
+async function init() {
+  updateClock();
+  setInterval(updateClock, 1000);
+  if (!window.supabaseClient) { showConfigNotice(); return; }
+  audio.volume = Number(els.volume.value);
+  wireControls();
+  setupTilt();
+  setupPresence();
+  await loadTracks();
+}
+
+function updateClock() {
+  const now = new Date();
+  let h = now.getHours();
+  const m = String(now.getMinutes()).padStart(2, '0');
+  const ap = h >= 12 ? 'pm' : 'am';
+  h = h % 12 || 12;
+  els.clock.textContent = `${h}:${m} ${ap}`;
+}
+
+function showConfigNotice() {
+  els.app.innerHTML = `<div class="max-w-md mx-auto mt-32 text-center chrome-edge rounded-2xl p-6">
+    <p class="font-display text-2xl bg-gradient-to-r from-marigold via-chili to-tassel bg-clip-text text-transparent mb-2">Connect Supabase</p>
+    <p class="text-sm text-chrome/70">Open <code class="text-marigold">supabase-config.js</code>, paste your Project URL and anon key, then reload this page.</p>
+  </div>`;
+}
+
+const YOUTUBE_BLOCKED_TERMS = [
+  'jukebox', 'compilation', 'playlist', 'nonstop', 'non-stop',
+  'mashup', 'medley', 'remix', 'slowed', 'reverb', 'cover',
+  'karaoke', 'instrumental', 'full album', 'album', 'collection',
+  '1 hour', '2 hour', '3 hour', '4 hour'
+];
+
+function isBlockedYoutubeTrack(t) {
+  const haystack = `${t?.title || ''} ${t?.artist || ''}`.toLowerCase();
+  return YOUTUBE_BLOCKED_TERMS.some(term => haystack.includes(term));
+}
+
+async function loadTracks() {
+  const [baseResult, youtubeResult] = await Promise.all([
+    window.supabaseClient.from('tracks').select('*').order('created_at', { ascending: true }),
+    window.supabaseClient.from('youtube_tracks').select('*').order('created_at', { ascending: true })
+  ]);
+
+  if (baseResult.error) {
+    els.marquee.textContent = 'Could not reach the depot — check your Supabase setup.';
+    return;
+  }
+
+  tracks = [
+    ...(baseResult.data || []).map(t => ({ ...t, source: 'supabase' })),
+    ...(youtubeResult.error ? [] : (youtubeResult.data || [])
+      .filter(t => !isBlockedYoutubeTrack(t))
+      .map(t => ({
+        id: t.id,
+        title: t.title,
+        artist: t.artist,
+        audio_url: null,
+        audio_path: null,
+        cover_url: t.thumbnail_url,
+        cover_path: null,
+        duration_seconds: t.duration_seconds,
+        created_at: t.created_at,
+        source: 'youtube',
+        youtube_id: t.youtube_id,
+        youtube_url: t.youtube_url,
+        youtube_channel: t.youtube_channel,
+        thumbnail_url: t.thumbnail_url
+      }))
+    )
+  ];
+
+  order = tracks.map((_, i) => i);
+  els.trackCount.textContent = `${tracks.length} stop${tracks.length === 1 ? '' : 's'}`;
+  els.btnShare.disabled = tracks.length === 0;
+
+  if (tracks.length === 0) {
+    els.titleMini.textContent = 'No cassettes yet';
+    els.artistMini.textContent = "Load some from the Driver's Cabin";
+    els.marquee.textContent = "🚌 THE DRIVER'S ON A CHAI BREAK — NO CASSETTES LOADED YET   •   ".repeat(2);
+    renderManifest();
+    return;
+  }
+
+  const sharedId = new URLSearchParams(location.search).get('track');
+  let startPos = 0;
+  let openBig = false;
+  if (sharedId) {
+    const idx = tracks.findIndex(t => t.id === sharedId);
+    if (idx !== -1) { startPos = order.indexOf(idx); openBig = true; }
+  }
+  loadAt(startPos, false);
+  if (openBig) openExpanded();
+}
+
+function loadAt(p, autoplay) {
+  if (!tracks.length) return;
+  pos = p;
+  const t = tracks[order[pos]];
+  currentSource = t.source === 'youtube' || t.youtube_id ? 'youtube' : 'supabase';
+
+  stopYoutube();
+  if (currentSource === 'youtube') {
+    audio.pause();
+    audio.removeAttribute('src');
+    els.youtubeWrap.classList.remove('hidden');
+    els.youtubeOpen.href = t.youtube_url || `https://www.youtube.com/watch?v=${t.youtube_id}`;
+    els.durTime.textContent = t.duration_seconds ? formatTime(t.duration_seconds) : '--:--';
+
+    if (window.YT && typeof window.YT.Player === 'function') {
+      createYoutubePlayer(t.youtube_id, autoplay);
+    } else {
+      waitForYoutube(t.youtube_id, autoplay);
+    }
+  } else {
+    els.youtubeWrap.classList.add('hidden');
+    els.youtubeOpen.removeAttribute('href');
+    audio.src = t.audio_url;
+    els.durTime.textContent = t.duration_seconds ? formatTime(t.duration_seconds) : '--:--';
+    if (autoplay) audio.play().catch(() => {});
+  }
+
+  els.title.textContent = t.title;
+  els.artist.textContent = t.artist;
+  els.titleMini.textContent = t.title;
+  els.artistMini.textContent = t.artist;
+  const bgUrl = t.cover_url ? `url('${t.cover_url}')` : '';
+  els.cover.style.backgroundImage = bgUrl; els.cover.textContent = t.cover_url ? '' : '🚍';
+  els.coverMini.style.backgroundImage = bgUrl; els.coverMini.textContent = t.cover_url ? '' : '🚍';
+  renderManifest();
+  updateMarquee();
+  history.replaceState(null, '', `${location.pathname}?track=${t.id}`);
+}
+
+function waitForYoutube(videoId, autoplay) {
+  const started = Date.now();
+
+  const check = () => {
+    if (window.YT && typeof window.YT.Player === 'function') {
+      console.log('YouTube IFrame API ready');
+      createYoutubePlayer(videoId, autoplay);
+      return;
+    }
+
+    if (Date.now() - started > 15000) {
+      console.error('YouTube IFrame API failed to load', {
+        YT: window.YT,
+        apiReady: window.__bwYoutubeReady,
+        videoId,
+        page: window.location.href
+      });
+      showToast('YouTube player could not load');
+      return;
+    }
+
+    setTimeout(check, 100);
+  };
+
+  check();
+}
+
+function createYoutubePlayer(videoId, autoplay) {
+  if (!window.YT || typeof window.YT.Player !== 'function') {
+    console.error('YT.Player is not available');
+    showToast('YouTube player is still loading');
+    return;
+  }
+
+  if (!videoId) {
+    console.error('Missing YouTube video ID');
+    showToast('Invalid YouTube video');
+    return;
+  }
+
+  if (youtubePlayer) {
+    try { youtubePlayer.destroy(); } catch (_) {}
+    youtubePlayer = null;
+  }
+
+  console.log('Creating YouTube player:', videoId);
+
+  youtubePlayer = new YT.Player('youtube-player', {
+    width: '100%',
+    height: '180',
+    videoId,
+
+    playerVars: {
+      autoplay: autoplay ? 1 : 0,
+      playsinline: 1,
+      rel: 0,
+      modestbranding: 1,
+      enablejsapi: 1,
+      origin: window.location.origin,
+      widget_referrer: window.location.href
+    },
+
+    events: {
+      onReady: e => {
+        console.log('YouTube player READY:', videoId);
+
+        e.target.setVolume(Number(els.volume.value) * 100);
+
+        if (autoplay) {
+          try {
+            e.target.playVideo();
+          } catch (err) {
+            console.warn('Autoplay was blocked:', err);
+          }
+        }
+
+        startYoutubeProgress();
+      },
+
+      onStateChange: e => {
+        console.log('YouTube state:', e.data);
+
+        if (e.data === YT.PlayerState.PLAYING) {
+          setPlayingUI(true);
+          startYoutubeProgress();
+        }
+
+        if (e.data === YT.PlayerState.PAUSED) {
+          setPlayingUI(false);
+        }
+
+        if (e.data === YT.PlayerState.ENDED) {
+          stopYoutubeProgress();
+          onEnded();
+        }
+      },
+
+      onError: e => {
+        console.error('YOUTUBE PLAYER ERROR:', e.data);
+
+        const errors = {
+          2: 'Invalid YouTube video ID',
+          5: 'HTML5 YouTube player error',
+          100: 'This video was removed or is private',
+          101: 'This video does not allow embedded playback',
+          150: 'This video does not allow embedded playback',
+          153: 'YouTube rejected the player because the site identity/referrer is missing'
+        };
+
+        const message = errors[e.data] || `YouTube player error ${e.data}`;
+        console.error(message);
+
+        showToast(message);
+        setPlayingUI(false);
+        stopYoutubeProgress();
+
+        try { youtubePlayer.destroy(); } catch (_) {}
+        youtubePlayer = null;
+      }
+    }
+  });
+}
+
+function startYoutubeProgress() {
+  stopYoutubeProgress();
+  youtubeTimer = setInterval(() => {
+    if (!youtubePlayer || currentSource !== 'youtube') return;
+    const cur = youtubePlayer.getCurrentTime?.() || 0;
+    const dur = youtubePlayer.getDuration?.() || 0;
+    const pct = dur ? (cur / dur) * 100 : 0;
+    els.fill.style.width = pct + '%';
+    els.marker.style.left = pct + '%';
+    els.bar.setAttribute('aria-valuenow', Math.round(pct));
+    els.curTime.textContent = formatTime(cur);
+    if (dur) els.durTime.textContent = formatTime(dur);
+  }, 500);
+}
+
+function stopYoutubeProgress() {
+  clearInterval(youtubeTimer);
+  youtubeTimer = null;
+}
+
+function stopYoutube() {
+  stopYoutubeProgress();
+  if (youtubePlayer) {
+    try { youtubePlayer.stopVideo(); youtubePlayer.destroy(); } catch (_) {}
+    youtubePlayer = null;
+  }
+}
+
+async function searchYoutubeFallback(query) {
+  if (youtubeSearchInFlight || query === lastYoutubeQuery) return;
+  youtubeSearchInFlight = true;
+  lastYoutubeQuery = query;
+  const oldText = els.marquee.textContent;
+  els.marquee.textContent = `🚌 SEARCHING YOUTUBE FOR: ${query.toUpperCase()}   •   ` + oldText;
+
+  try {
+    const { data, error } = await window.supabaseClient.functions.invoke('youtube-search', {
+      body: { query, maxResults: 8 }
+    });
+    if (error) throw error;
+
+    const results = (data?.tracks || []).filter(t => !isBlockedYoutubeTrack(t));
+    if (results.length) {
+      const existing = new Set(tracks.map(t => t.youtube_id).filter(Boolean));
+      for (const t of results) {
+        const existingIndex = tracks.findIndex(x => x.youtube_id && x.youtube_id === t.youtube_id);
+        if (existingIndex === -1) tracks.push(t);
+      }
+      youtubeSearchResults = results.map(t => tracks.find(x => x.youtube_id === t.youtube_id) || t);
+      order = tracks.map((_, i) => i);
+      els.trackCount.textContent = `${tracks.length} stop${tracks.length === 1 ? '' : 's'}`;
+      renderManifest();
+      showToast(`${results.length} road result${results.length === 1 ? '' : 's'} added`);
+      return;
+    }
+
+    showPreloadedFallback(query);
+  } catch (err) {
+    console.error('YouTube search failed:', err);
+    showPreloadedFallback(query);
+  } finally {
+    youtubeSearchInFlight = false;
+  }
+}
+
+function showPreloadedFallback(query) {
+  const savedQuery = filterQuery;
+  const savedResults = tracks;
+  // Fallback intentionally shows only the original pre-loaded Supabase songs.
+  tracks = tracks.filter(t => t.source === 'supabase');
+  filterQuery = '';
+  renderManifest();
+  tracks = savedResults;
+  filterQuery = savedQuery;
+  els.marquee.textContent = `🚌 NO ONLINE MATCH FOR “${query.toUpperCase()}”   •   PLAYING YOUR PRE-LOADED CASSETTES   •   `;
+  showToast('No online match — your pre-loaded songs are ready');
+}
+
+function visibleTracks() {
+  if (!filterQuery) return tracks;
+  const q = filterQuery.toLowerCase();
+  const local = tracks.filter(t => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q));
+  return local.length ? local : youtubeSearchResults;
+}
+
+function renderManifest() {
+  if (!tracks.length) {
+    els.manifest.innerHTML = `<li class="text-chrome/50 text-sm px-2 py-6 text-center">No cassettes loaded yet.</li>`;
+    return;
+  }
+  const list = visibleTracks();
+  if (!list.length) {
+    els.manifest.innerHTML = `<li class="text-chrome/50 text-sm px-2 py-6 text-center">
+      <div>No local matches for “${escapeHtml(filterQuery)}”.</div>
+      <div class="mt-1 text-xs">Searching YouTube automatically…</div>
+      <button id="btn-preloaded" type="button" class="mt-3 rounded-full px-4 py-2 text-xs bg-white/10 hover:bg-white/15 border border-white/10 text-chrome">Play pre-loaded songs</button>
+    </li>`;
+    document.getElementById('btn-preloaded')?.addEventListener('click', () => {
+      filterQuery = '';
+      els.search.value = '';
+      youtubeSearchResults = [];
+      const firstPreloaded = tracks.findIndex(t => t.source === 'supabase');
+      renderManifest();
+      if (firstPreloaded !== -1) {
+        const p = order.indexOf(firstPreloaded);
+        loadAt(p === -1 ? 0 : p, true);
+      }
+    });
+    return;
+  }
+  els.manifest.innerHTML = list.map(t => {
+    const idx = tracks.indexOf(t);
+    const isCurrent = idx === order[pos];
+    return `<li class="flex items-center gap-1">
+      <button data-idx="${idx}" class="flex-1 min-w-0 flex items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-white/10 ${isCurrent ? 'bg-white/10 ring-1 ring-marigold/50' : ''}" ${isCurrent ? 'aria-current="true"' : ''}>
+        <span class="h-9 w-9 shrink-0 rounded-full bg-black/30 bg-cover bg-center flex items-center justify-center text-sm" ${t.cover_url ? `style="background-image:url('${t.cover_url}')"` : ''}>${t.cover_url ? '' : '🚍'}</span>
+        <span class="min-w-0 flex-1">
+          <span class="block truncate text-sm font-medium">${escapeHtml(t.title)}</span>
+          <span class="block truncate text-xs text-chrome/60">${escapeHtml(t.artist)}${t.source === 'youtube' ? ' • YouTube' : ''}</span>
+        </span>
+        <span class="text-[11px] text-chrome/50 shrink-0">${t.duration_seconds ? formatTime(t.duration_seconds) : ''}</span>
+      </button>
+      <button data-share-idx="${idx}" aria-label="Share this song" class="p-2 text-chrome/40 hover:text-marigold transition shrink-0">${SHARE_ICON}</button>
+    </li>`;
+  }).join('');
+}
+
+function wireControls() {
+  els.btnPlay.addEventListener('click', togglePlay);
+  els.btnPlayMini.addEventListener('click', togglePlay);
+  els.btnPrev.addEventListener('click', () => step(-1));
+  els.btnNext.addEventListener('click', () => step(1));
+  els.btnShuffle.addEventListener('click', toggleShuffle);
+  els.btnRepeat.addEventListener('click', cycleRepeat);
+  els.btnHorn.addEventListener('click', playHorn);
+  els.btnShare.addEventListener('click', () => { const t = tracks[order[pos]]; if (t) shareTrack(t); });
+  els.btnExpand.addEventListener('click', openExpanded);
+  els.btnExpandMini.addEventListener('click', openExpanded);
+  els.btnCollapse.addEventListener('click', closeExpanded);
+  els.expandedView.addEventListener('click', e => { if (e.target === els.expandedView) closeExpanded(); });
+  els.volume.addEventListener('input', () => {
+    const v = Number(els.volume.value);
+    audio.volume = v;
+    if (youtubePlayer?.setVolume) youtubePlayer.setVolume(v * 100);
+  });
+  els.search.addEventListener('input', () => {
+    filterQuery = els.search.value.trim();
+    youtubeSearchResults = [];
+    renderManifest();
+    clearTimeout(youtubeSearchTimer);
+    if (filterQuery.length >= 3 && visibleTracks().length === 0) {
+      youtubeSearchTimer = setTimeout(() => searchYoutubeFallback(filterQuery), 750);
+    }
+  });
+  els.bar.addEventListener('click', seek);
+  els.bar.addEventListener('keydown', e => {
+    if (currentSource === 'youtube' && youtubePlayer) {
+      const cur = youtubePlayer.getCurrentTime?.() || 0;
+      const dur = youtubePlayer.getDuration?.() || 0;
+      if (e.key === 'ArrowRight') youtubePlayer.seekTo(Math.min(dur, cur + 5), true);
+      if (e.key === 'ArrowLeft') youtubePlayer.seekTo(Math.max(0, cur - 5), true);
+      return;
+    }
+    if (e.key === 'ArrowRight') audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 5);
+    if (e.key === 'ArrowLeft') audio.currentTime = Math.max(0, audio.currentTime - 5);
+  });
+  els.sleepSelect.addEventListener('change', setSleepTimer);
+  els.manifest.addEventListener('click', e => {
+    const shareBtn = e.target.closest('button[data-share-idx]');
+    if (shareBtn) { shareTrack(tracks[Number(shareBtn.dataset.shareIdx)]); return; }
+    const btn = e.target.closest('button[data-idx]');
+    if (!btn) return;
+    const p = order.indexOf(Number(btn.dataset.idx));
+    loadAt(p === -1 ? 0 : p, true);
+  });
+  audio.addEventListener('timeupdate', updateProgress);
+  audio.addEventListener('play', () => setPlayingUI(true));
+  audio.addEventListener('pause', () => setPlayingUI(false));
+  audio.addEventListener('ended', onEnded);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !els.expandedView.classList.contains('hidden')) closeExpanded();
+    if (e.code === 'Space' && !['INPUT', 'BUTTON', 'SELECT'].includes(document.activeElement.tagName)) {
+      e.preventDefault(); togglePlay();
+    }
+  });
+}
+
+function openExpanded() {
+  els.expandedView.classList.remove('hidden');
+  els.expandedView.setAttribute('aria-hidden', 'false');
+  els.btnExpand.setAttribute('aria-expanded', 'true');
+  els.btnExpandMini.setAttribute('aria-expanded', 'true');
+  document.body.style.overflow = 'hidden';
+}
+function closeExpanded() {
+  els.expandedView.classList.add('hidden');
+  els.expandedView.setAttribute('aria-hidden', 'true');
+  els.btnExpand.setAttribute('aria-expanded', 'false');
+  els.btnExpandMini.setAttribute('aria-expanded', 'false');
+  document.body.style.overflow = '';
+}
+
+function togglePlay() {
+  if (currentSource === 'youtube') {
+    if (!youtubePlayer) return;
+    const state = youtubePlayer.getPlayerState?.();
+    if (state === YT.PlayerState.PLAYING) youtubePlayer.pauseVideo();
+    else youtubePlayer.playVideo();
+    return;
+  }
+  audio.paused ? audio.play() : audio.pause();
+}
+
+function setPlayingUI(isPlaying) {
+  els.btnPlay.innerHTML = isPlaying ? ICONS.pause : ICONS.play;
+  els.btnPlay.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
+  els.btnPlayMini.innerHTML = isPlaying ? ICONS.pauseMini : ICONS.playMini;
+  els.btnPlayMini.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
+  els.cover.classList.toggle('paused', !isPlaying);
+}
+
+function step(dir) {
+  if (!tracks.length) return;
+  let next = pos + dir;
+  if (next < 0) next = order.length - 1;
+  if (next >= order.length) next = 0;
+  loadAt(next, true);
+}
+
+function onEnded() {
+  if (repeatMode === 'one') { loadAt(pos, true); return; }
+  const next = pos + 1;
+  if (next < order.length) loadAt(next, true);
+  else if (repeatMode === 'all') loadAt(0, true);
+  else setPlayingUI(false);
+}
+
+function toggleShuffle() {
+  shuffleOn = !shuffleOn;
+  const currentTrackIdx = order[pos];
+  order = tracks.map((_, i) => i);
+  if (shuffleOn) {
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+  }
+  pos = order.indexOf(currentTrackIdx);
+  els.btnShuffle.classList.toggle('text-marigold', shuffleOn);
+  renderManifest();
+}
+
+function cycleRepeat() {
+  repeatMode = repeatMode === 'off' ? 'all' : repeatMode === 'all' ? 'one' : 'off';
+  els.btnRepeat.classList.toggle('text-marigold', repeatMode !== 'off');
+  els.btnRepeat.title = `Repeat: ${repeatMode}`;
+}
+
+function seek(e) {
+  const rect = els.bar.getBoundingClientRect();
+  const pct = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+  if (currentSource === 'youtube') {
+    const dur = youtubePlayer?.getDuration?.() || 0;
+    if (dur) youtubePlayer.seekTo(pct * dur, true);
+    return;
+  }
+  if (!audio.duration) return;
+  audio.currentTime = pct * audio.duration;
+}
+
+function updateProgress() {
+  if (currentSource === 'youtube') return;
+  const pct = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0;
+  els.fill.style.width = pct + '%';
+  els.marker.style.left = pct + '%';
+  els.bar.setAttribute('aria-valuenow', Math.round(pct));
+  els.curTime.textContent = formatTime(audio.currentTime);
+  if (audio.duration && tracks[order[pos]] && !tracks[order[pos]].duration_seconds) els.durTime.textContent = formatTime(audio.duration);
+}
+
+function formatTime(s) {
+  s = Math.floor(s || 0);
+  const m = Math.floor(s / 60), r = s % 60;
+  return `${m}:${r < 10 ? '0' : ''}${r}`;
+}
+
+function updateMarquee() {
+  const t = tracks[order[pos]];
+  const nextT = tracks[order[(pos + 1) % order.length]];
+  const msg = `🚌 ${els.onboard.textContent} ON BOARD   •   NOW PLAYING: ${t.title.toUpperCase()}   •   NEXT STOP: ${nextT.title.toUpperCase()}   •   HORN OK PLEASE   •   `;
+  els.marquee.textContent = msg + msg;
+}
+
+function setupPresence() {
+  try {
+    let pid = sessionStorage.getItem('bw_passenger');
+    if (!pid) { pid = crypto.randomUUID(); sessionStorage.setItem('bw_passenger', pid); }
+    const channel = window.supabaseClient.channel('bus-cabin', { config: { presence: { key: pid } } });
+    channel.on('presence', { event: 'sync' }, () => {
+      els.onboard.textContent = Object.keys(channel.presenceState()).length;
+      if (tracks.length) updateMarquee();
+    });
+    channel.subscribe(async status => { if (status === 'SUBSCRIBED') await channel.track({ at: Date.now() }); });
+  } catch (e) { /* presence is a nice-to-have — fail quietly */ }
+}
+
+function setupTilt() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (!window.matchMedia('(hover: hover)').matches) return;
+  const card = els.playerCard;
+  card.addEventListener('mousemove', e => {
+    const r = card.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - 0.5;
+    const y = (e.clientY - r.top) / r.height - 0.5;
+    card.style.transform = `perspective(900px) rotateY(${x * 6}deg) rotateX(${-y * 6}deg)`;
+  });
+  card.addEventListener('mouseleave', () => { card.style.transform = 'perspective(900px) rotateY(0deg) rotateX(0deg)'; });
+}
+
+async function shareTrack(track) {
+  const url = `${location.origin}${location.pathname}?track=${track.id}`;
+  if (navigator.share) {
+    try { await navigator.share({ title: `${track.title} — Bus Wala`, text: `Listen to ${track.title} by ${track.artist} on Bus Wala`, url }); }
+    catch (e) { /* user cancelled — ignore */ }
+    return;
+  }
+  try { await navigator.clipboard.writeText(url); showToast('Link copied — go ahead and share it'); }
+  catch (e) { showToast(url); }
+}
+
+function showToast(msg) {
+  els.toast.textContent = msg;
+  els.toast.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => els.toast.classList.remove('show'), 2200);
+}
+
+let sleepInterval = null;
+function setSleepTimer() {
+  clearInterval(sleepInterval);
+  els.sleepRemaining.textContent = '';
+  const mins = Number(els.sleepSelect.value);
+  if (!mins) return;
+  const endAt = Date.now() + mins * 60000;
+  sleepInterval = setInterval(() => {
+    const msLeft = endAt - Date.now();
+    if (msLeft <= 0) {
+      clearInterval(sleepInterval);
+      if (currentSource === 'youtube') youtubePlayer?.pauseVideo?.();
+      else audio.pause();
+      els.sleepSelect.value = '0';
+      els.sleepRemaining.textContent = '';
+      return;
+    }
+    const m = Math.floor(msLeft / 60000), s = Math.floor((msLeft % 60000) / 1000);
+    els.sleepRemaining.textContent = `off in ${m}:${s < 10 ? '0' : ''}${s}`;
+  }, 1000);
+}
+
+let hornCtx;
+function playHorn() {
+  hornCtx = hornCtx || new (window.AudioContext || window.webkitAudioContext)();
+  if (hornCtx.state === 'suspended') hornCtx.resume();
+  const now = hornCtx.currentTime;
+  [220, 277].forEach(freq => {
+    const osc = hornCtx.createOscillator(), gain = hornCtx.createGain();
+    osc.type = 'sawtooth'; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.16, now + 0.03);
+    gain.gain.linearRampToValueAtTime(0.14, now + 0.45);
+    gain.gain.linearRampToValueAtTime(0, now + 0.6);
+    osc.connect(gain).connect(hornCtx.destination);
+    osc.start(now); osc.stop(now + 0.62);
+  });
+}
+
+const escapeHtml = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+</script>
+</body>
+</html>
