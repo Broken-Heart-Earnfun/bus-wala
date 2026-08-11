@@ -1,0 +1,194 @@
+@import url('https://fonts.googleapis.com/css2?family=Yatra+One&family=Mukta:wght@400;500;600;700&display=swap');
+
+/* ---------- Background scene: the "driving through the highway" illusion ---------- */
+/* Pure CSS pan/zoom on a static photo — no video or animation file needed. */
+.scene { position: fixed; inset: 0; z-index: -10; overflow: hidden; }
+.scene-photo {
+  position: absolute; inset: -6%;
+  background-image: url('bg-highway.jpg');
+  background-size: cover;
+  background-position: center;
+  background-color: #0B2E33;
+  animation: drive 40s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes drive {
+  0%   { transform: scale(1.06) translate(0, 0); }
+  100% { transform: scale(1.15) translate(-1.5%, -1%); }
+}
+.scene-scrim {
+  position: fixed; inset: 0; z-index: -5; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(6,20,22,.68) 0%, rgba(6,20,22,.18) 28%, rgba(6,20,22,.3) 62%, rgba(6,20,22,.8) 100%);
+}
+@media (prefers-reduced-motion: reduce) { .scene-photo { animation: none; } }
+
+/* ---------- Glass "chip" treatment shared by topbar controls ---------- */
+.pill-btn, .icon-btn, .clock-text, .pill-badge {
+  background: rgba(6, 22, 24, .45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, .12);
+}
+.pill-btn { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem .9rem; border-radius: 999px; font-size: .8rem; }
+.pill-btn:disabled { opacity: .4; pointer-events: none; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; height: 2.5rem; width: 2.5rem; border-radius: 999px; }
+.pill-badge { display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .8rem; border-radius: 999px; font-size: .75rem; }
+.clock-text { padding: .5rem .9rem; border-radius: 999px; font-variant-numeric: tabular-nums; font-size: .85rem; letter-spacing: .02em; }
+
+/* ---------- Ambient "screensaver" now-playing pill ---------- */
+.ambient-pill {
+  display: flex; align-items: center; gap: .75rem;
+  background: rgba(6, 22, 24, .4);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 999px;
+  padding: .6rem .6rem .6rem 1rem;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .4);
+}
+.cover-mini {
+  height: 2.75rem; width: 2.75rem; border-radius: 999px; flex-shrink: 0;
+  background-color: rgba(0, 0, 0, .3); background-size: cover; background-position: center;
+  display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+}
+.play-mini, .expand-mini {
+  height: 2.75rem; width: 2.75rem; border-radius: 999px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.play-mini { background: linear-gradient(135deg, #F4A300, #D42E12); color: #0B2E33; }
+.expand-mini { background: rgba(255, 255, 255, .1); color: #C9D6D9; }
+
+/* ---------- Glass "pinstripe" cards (route board, player, manifest) ---------- */
+.chrome-edge {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(rgba(11, 46, 51, .4), rgba(11, 46, 51, .4)) padding-box,
+    linear-gradient(135deg, rgba(244, 163, 0, .65), rgba(212, 46, 18, .65), rgba(226, 62, 133, .65)) border-box;
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+/* Diagonal glass shine */
+.chrome-edge::before {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(120deg, rgba(255,255,255,.14) 0%, rgba(255,255,255,0) 32%, rgba(255,255,255,0) 68%, rgba(255,255,255,.05) 100%);
+}
+
+/* Subtle 3D tilt on the hero player card (mouse-driven, desktop only — see JS) */
+.tilt-card { transition: transform .15s ease-out; transform-style: preserve-3d; }
+
+.board { background: rgba(6, 22, 24, .5); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+
+/* Route-board marquee: text is duplicated in markup, loop is a clean -50% translate */
+.marquee-track { display: inline-block; white-space: nowrap; animation: marquee 24s linear infinite; }
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* Cover art hangs like a mirror ornament and sways gently while playing */
+.ornament { animation: swing 3.2s ease-in-out infinite; transform-origin: top center; }
+.ornament.paused { animation-play-state: paused; }
+@keyframes swing { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+
+/* Dashed centerline for the seek bar, styled like a highway */
+.road {
+  background-image: repeating-linear-gradient(90deg, #C9D6D9 0 10px, transparent 10px 20px);
+  background-position: center;
+  background-size: 100% 2px;
+  background-repeat: no-repeat;
+}
+
+/* Toast for "link copied" feedback */
+.toast {
+  position: fixed; left: 50%; bottom: 28px; z-index: 60;
+  transform: translate(-50%, 12px);
+  background: rgba(6, 22, 24, .92); color: #F4A300;
+  padding: .55rem 1.1rem; border-radius: 999px; font-size: .8rem;
+  border: 1px solid rgba(244, 163, 0, .3);
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s ease, transform .25s ease;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track, .ornament { animation: none; }
+  .tilt-card { transition: none; }
+}
+
+/* ---------- YouTube fallback player ---------- */
+.youtube-wrap {
+  border-top: 1px solid rgba(255,255,255,.10);
+  padding-top: 1rem;
+}
+.youtube-player {
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 16 / 9;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: .9rem;
+  background: rgba(0,0,0,.35);
+  border: 1px solid rgba(255,255,255,.10);
+}
+.youtube-player iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- Compact YouTube audio-style source ---------- */
+.youtube-wrap {
+  border-top: 1px solid rgba(255,255,255,.10);
+  padding-top: .8rem;
+}
+.youtube-audio-shell {
+  width: min(100%, 360px);
+  margin: 0 auto;
+  padding: .65rem;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 1rem;
+  background: rgba(0,0,0,.22);
+}
+.youtube-source-line {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  margin-bottom: .5rem;
+  color: rgba(255,255,255,.48);
+  font-size: 10px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.youtube-source-line a {
+  margin-left: auto;
+  color: rgba(255,255,255,.58);
+  text-decoration: underline;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.youtube-source-line a:hover { color: #f4b942; }
+.youtube-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #ef4444;
+  box-shadow: 0 0 8px rgba(239,68,68,.45);
+}
+.youtube-player {
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 16 / 9;
+  min-height: 180px;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: .7rem;
+  background: rgba(0,0,0,.35);
+  border: 1px solid rgba(255,255,255,.08);
+}
+.youtube-player iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
