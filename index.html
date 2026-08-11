@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bus Wala — Horn OK Please</title>
+<meta name="description" content="A highway jukebox styled after a decorated Indian bus, streaming a playlist you control from Supabase.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚌</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: { diesel: '#0B2E33', board: '#061618', marigold: '#F4A300', chili: '#D42E12', tassel: '#E23E85', chrome: '#C9D6D9' },
+        fontFamily: { display: ['"Yatra One"', 'cursive'], sans: ['Mukta', 'sans-serif'] }
+      }
+    }
+  };
+</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-diesel text-chrome font-sans min-h-screen">
+
+<div id="start-overlay" class="fixed inset-0 bg-diesel/95 backdrop-blur-sm flex flex-col items-center justify-center gap-4 z-50 px-6 text-center">
+  <p lang="hi" class="font-display text-3xl bg-gradient-to-r from-marigold via-chili to-tassel bg-clip-text text-transparent">बस वाला</p>
+  <p id="overlay-msg" class="text-chrome/60 text-sm max-w-xs">Warming up the engine…</p>
+  <button id="btn-start" class="hidden rounded-full px-8 py-3 bg-gradient-to-r from-marigold to-chili font-semibold text-diesel shadow-lg">Start the Engine</button>
+  <a id="overlay-admin-link" href="admin.html" class="hidden text-sm underline text-chrome/70">Go to the Driver's Cabin</a>
+</div>
+
+<div id="app" class="max-w-5xl mx-auto px-4 py-8 sm:py-12">
+
+  <header class="text-center mb-5">
+    <p lang="hi" class="text-sm tracking-wide text-tassel/90 mb-1">हॉर्न ओके प्लीज़</p>
+    <h1 class="font-display text-4xl sm:text-5xl">
+      <span lang="hi" class="bg-gradient-to-r from-marigold via-chili to-tassel bg-clip-text text-transparent">बस वाला</span>
+    </h1>
+    <p class="text-chrome/60 text-sm sm:text-base mt-1">Bus Wala — Highway Hits On Demand</p>
+    <div class="flex items-center gap-2 justify-center text-xs text-chrome/60 mt-3">
+      <span class="relative flex h-2 w-2">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+      </span>
+      <span><span id="onboard-count">1</span> on board</span>
+    </div>
+  </header>
+
+  <div class="board rounded-lg px-3 py-2 overflow-hidden mb-6 border border-marigold/20" aria-hidden="true">
+    <div id="marquee" class="marquee-track font-mono text-[11px] sm:text-sm tracking-widest uppercase text-marigold">Loading the route…</div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6 items-start">
+
+    <section class="chrome-edge rounded-3xl p-6 sm:p-8 text-center">
+      <div class="mx-auto mb-1 h-6 w-px bg-chrome/30"></div>
+      <div id="cover" class="ornament paused mx-auto h-32 w-32 sm:h-40 sm:w-40 rounded-full bg-black/30 bg-cover bg-center ring-4 ring-marigold/50 shadow-2xl flex items-center justify-center text-5xl">🚍</div>
+      <h2 id="now-title" class="font-display text-2xl sm:text-3xl mt-4 truncate">Loading…</h2>
+      <p id="now-artist" class="text-chrome/60 text-sm mt-1 truncate">&nbsp;</p>
+
+      <div class="mt-6">
+        <div id="track-bar" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" class="relative h-3 rounded-full road cursor-pointer">
+          <div id="progress-fill" class="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-marigold to-chili" style="width:0%"></div>
+          <div id="bus-marker" class="absolute -top-2 h-7 w-7 -translate-x-1/2 text-lg leading-7 text-center pointer-events-none" style="left:0%">🚌</div>
+        </div>
+        <div class="flex justify-between text-[11px] text-chrome/50 mt-2">
+          <span id="time-current">0:00</span>
+          <span id="time-duration">0:00</span>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-center gap-3 sm:gap-5 mt-6">
+        <button id="btn-shuffle" aria-label="Shuffle" title="Shuffle" class="text-chrome/60 hover:text-marigold transition">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+        </button>
+        <button id="btn-prev" aria-label="Previous track" class="text-chrome hover:text-marigold transition">
+          <svg viewBox="0 0 24 24" fill="currentColor" class="h-6 w-6"><path d="M7 5h2v14H7zM19 5 9 12l10 7z"/></svg>
+        </button>
+        <button id="btn-play" aria-label="Play" class="h-14 w-14 rounded-full bg-gradient-to-r from-marigold to-chili text-diesel flex items-center justify-center shadow-lg">
+          <svg viewBox="0 0 24 24" fill="currentColor" class="h-6 w-6"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button id="btn-next" aria-label="Next track" class="text-chrome hover:text-marigold transition">
+          <svg viewBox="0 0 24 24" fill="currentColor" class="h-6 w-6"><path d="M15 5h2v14h-2zM5 5l10 7-10 7z"/></svg>
+        </button>
+        <button id="btn-repeat" aria-label="Repeat" title="Repeat: off" class="text-chrome/60 hover:text-marigold transition">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        </button>
+      </div>
+
+      <div class="flex items-center justify-center gap-6 mt-6">
+        <button id="btn-horn" aria-label="Sound the horn" class="flex flex-col items-center text-chili hover:scale-105 active:scale-95 transition">
+          <span class="text-2xl leading-none">📯</span>
+          <span class="text-[9px] tracking-widest mt-1 text-chrome/50">HORN OK PLEASE</span>
+        </button>
+        <label class="flex items-center gap-2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-chrome/50"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>
+          <input id="volume" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume" class="w-20 accent-marigold">
+        </label>
+      </div>
+    </section>
+
+    <aside class="chrome-edge rounded-3xl p-5 sm:p-6">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-display text-xl">Route Manifest</h2>
+        <span id="track-count" class="text-xs text-chrome/50">0 stops</span>
+      </div>
+      <input id="search" type="search" placeholder="Search the manifest…" aria-label="Search tracks" class="w-full mb-3 rounded-lg bg-black/30 border border-white/10 px-3 py-2 text-sm placeholder-chrome/40 outline-none focus-visible:ring-2 focus-visible:ring-marigold">
+      <ul id="manifest-list" class="space-y-1 max-h-[420px] overflow-y-auto pr-1"></ul>
+    </aside>
+
+  </div>
+
+  <footer class="text-center text-xs text-chrome/40 mt-10">
+    <a href="admin.html" class="underline hover:text-chrome/70">Driver's Cabin</a> · your own playlist, streamed off Supabase.
+  </footer>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script>
+const ICONS = {
+  play: '<svg viewBox="0 0 24 24" fill="currentColor" class="h-6 w-6"><path d="M8 5v14l11-7z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="currentColor" class="h-6 w-6"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>'
+};
+
+const audio = new Audio();
+let tracks = [], order = [], pos = 0, shuffleOn = false, repeatMode = 'off', started = false, filterQuery = '';
+
+const els = {
+  app: document.getElementById('app'),
+  overlay: document.getElementById('start-overlay'),
+  overlayMsg: document.getElementById('overlay-msg'),
+  btnStart: document.getElementById('btn-start'),
+  overlayAdmin: document.getElementById('overlay-admin-link'),
+  cover: document.getElementById('cover'),
+  title: document.getElementById('now-title'),
+  artist: document.getElementById('now-artist'),
+  bar: document.getElementById('track-bar'),
+  fill: document.getElementById('progress-fill'),
+  marker: document.getElementById('bus-marker'),
+  curTime: document.getElementById('time-current'),
+  durTime: document.getElementById('time-duration'),
+  btnPlay: document.getElementById('btn-play'),
+  btnPrev: document.getElementById('btn-prev'),
+  btnNext: document.getElementById('btn-next'),
+  btnShuffle: document.getElementById('btn-shuffle'),
+  btnRepeat: document.getElementById('btn-repeat'),
+  btnHorn: document.getElementById('btn-horn'),
+  volume: document.getElementById('volume'),
+  search: document.getElementById('search'),
+  manifest: document.getElementById('manifest-list'),
+  trackCount: document.getElementById('track-count'),
+  marquee: document.getElementById('marquee'),
+  onboard: document.getElementById('onboard-count'),
+};
+
+init();
+
+async function init() {
+  if (!window.supabaseClient) { showConfigNotice(); return; }
+  audio.volume = Number(els.volume.value);
+  wireControls();
+  setupPresence();
+  await loadTracks();
+}
+
+function showConfigNotice() {
+  els.app.innerHTML = `<div class="max-w-md mx-auto mt-10 text-center chrome-edge rounded-2xl p-6">
+    <p class="font-display text-2xl bg-gradient-to-r from-marigold via-chili to-tassel bg-clip-text text-transparent mb-2">Connect Supabase</p>
+    <p class="text-sm text-chrome/70">Open <code class="text-marigold">supabase-config.js</code>, paste your Project URL and anon key, then reload this page.</p>
+  </div>`;
+  els.overlay.classList.add('hidden');
+}
+
+async function loadTracks() {
+  const { data, error } = await window.supabaseClient.from('tracks').select('*').order('created_at', { ascending: true });
+  if (error) { els.marquee.textContent = 'Could not reach the depot — check your Supabase setup.'; return; }
+  tracks = data || [];
+  order = tracks.map((_, i) => i);
+  els.trackCount.textContent = `${tracks.length} stop${tracks.length === 1 ? '' : 's'}`;
+
+  if (tracks.length === 0) {
+    els.overlayMsg.textContent = "No cassettes loaded yet. The driver's on a chai break.";
+    els.overlayAdmin.classList.remove('hidden');
+    return;
+  }
+  els.overlayMsg.textContent = 'Hop on for non-stop highway hits.';
+  els.btnStart.classList.remove('hidden');
+  loadAt(0, false);
+}
+
+function loadAt(p, autoplay) {
+  pos = p;
+  const t = tracks[order[pos]];
+  audio.src = t.audio_url;
+  els.title.textContent = t.title;
+  els.artist.textContent = t.artist;
+  if (t.cover_url) { els.cover.style.backgroundImage = `url('${t.cover_url}')`; els.cover.textContent = ''; }
+  else { els.cover.style.backgroundImage = ''; els.cover.textContent = '🚍'; }
+  els.durTime.textContent = t.duration_seconds ? formatTime(t.duration_seconds) : '--:--';
+  renderManifest();
+  updateMarquee();
+  if (autoplay) audio.play();
+}
+
+function visibleTracks() {
+  if (!filterQuery) return tracks;
+  const q = filterQuery.toLowerCase();
+  return tracks.filter(t => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q));
+}
+
+function renderManifest() {
+  const list = visibleTracks();
+  els.manifest.innerHTML = list.map(t => {
+    const idx = tracks.indexOf(t);
+    const isCurrent = idx === order[pos];
+    return `<li>
+      <button data-idx="${idx}" class="w-full flex items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-white/5 ${isCurrent ? 'bg-white/10 ring-1 ring-marigold/50' : ''}" ${isCurrent ? 'aria-current="true"' : ''}>
+        <span class="h-9 w-9 shrink-0 rounded-full bg-black/30 bg-cover bg-center flex items-center justify-center text-sm" ${t.cover_url ? `style="background-image:url('${t.cover_url}')"` : ''}>${t.cover_url ? '' : '🚍'}</span>
+        <span class="min-w-0 flex-1">
+          <span class="block truncate text-sm font-medium">${escapeHtml(t.title)}</span>
+          <span class="block truncate text-xs text-chrome/60">${escapeHtml(t.artist)}</span>
+        </span>
+        <span class="text-[11px] text-chrome/50 shrink-0">${t.duration_seconds ? formatTime(t.duration_seconds) : ''}</span>
+      </button>
+    </li>`;
+  }).join('');
+}
+
+function wireControls() {
+  els.btnStart.addEventListener('click', () => { ensureStarted(); audio.play(); });
+  els.btnPlay.addEventListener('click', togglePlay);
+  els.btnPrev.addEventListener('click', () => step(-1));
+  els.btnNext.addEventListener('click', () => step(1));
+  els.btnShuffle.addEventListener('click', toggleShuffle);
+  els.btnRepeat.addEventListener('click', cycleRepeat);
+  els.btnHorn.addEventListener('click', playHorn);
+  els.volume.addEventListener('input', () => audio.volume = Number(els.volume.value));
+  els.search.addEventListener('input', () => { filterQuery = els.search.value; renderManifest(); });
+  els.bar.addEventListener('click', seek);
+  els.bar.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 5);
+    if (e.key === 'ArrowLeft') audio.currentTime = Math.max(0, audio.currentTime - 5);
+  });
+  els.manifest.addEventListener('click', e => {
+    const btn = e.target.closest('button[data-idx]');
+    if (!btn) return;
+    const idx = Number(btn.dataset.idx);
+    const p = order.indexOf(idx);
+    ensureStarted();
+    loadAt(p === -1 ? 0 : p, true);
+  });
+  audio.addEventListener('timeupdate', updateProgress);
+  audio.addEventListener('play', () => setPlayingUI(true));
+  audio.addEventListener('pause', () => setPlayingUI(false));
+  audio.addEventListener('ended', onEnded);
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space' && !['INPUT', 'BUTTON'].includes(document.activeElement.tagName)) {
+      e.preventDefault(); togglePlay();
+    }
+  });
+}
+
+function ensureStarted() {
+  if (started) return;
+  started = true;
+  els.overlay.classList.add('hidden');
+}
+
+function togglePlay() { ensureStarted(); audio.paused ? audio.play() : audio.pause(); }
+
+function setPlayingUI(isPlaying) {
+  els.btnPlay.innerHTML = isPlaying ? ICONS.pause : ICONS.play;
+  els.btnPlay.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
+  els.cover.classList.toggle('paused', !isPlaying);
+}
+
+function step(dir) {
+  let next = pos + dir;
+  if (next < 0) next = order.length - 1;
+  if (next >= order.length) next = 0;
+  ensureStarted();
+  loadAt(next, true);
+}
+
+function onEnded() {
+  if (repeatMode === 'one') { loadAt(pos, true); return; }
+  const next = pos + 1;
+  if (next < order.length) loadAt(next, true);
+  else if (repeatMode === 'all') loadAt(0, true);
+  else setPlayingUI(false);
+}
+
+function toggleShuffle() {
+  shuffleOn = !shuffleOn;
+  const currentTrackIdx = order[pos];
+  order = tracks.map((_, i) => i);
+  if (shuffleOn) {
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+  }
+  pos = order.indexOf(currentTrackIdx);
+  els.btnShuffle.classList.toggle('text-marigold', shuffleOn);
+  renderManifest();
+}
+
+function cycleRepeat() {
+  repeatMode = repeatMode === 'off' ? 'all' : repeatMode === 'all' ? 'one' : 'off';
+  els.btnRepeat.classList.toggle('text-marigold', repeatMode !== 'off');
+  els.btnRepeat.title = `Repeat: ${repeatMode}`;
+}
+
+function seek(e) {
+  if (!audio.duration) return;
+  const rect = els.bar.getBoundingClientRect();
+  const pct = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+  audio.currentTime = pct * audio.duration;
+}
+
+function updateProgress() {
+  const pct = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0;
+  els.fill.style.width = pct + '%';
+  els.marker.style.left = pct + '%';
+  els.bar.setAttribute('aria-valuenow', Math.round(pct));
+  els.curTime.textContent = formatTime(audio.currentTime);
+  if (audio.duration && !tracks[order[pos]].duration_seconds) els.durTime.textContent = formatTime(audio.duration);
+}
+
+function formatTime(s) {
+  s = Math.floor(s || 0);
+  const m = Math.floor(s / 60), r = s % 60;
+  return `${m}:${r < 10 ? '0' : ''}${r}`;
+}
+
+function updateMarquee() {
+  const t = tracks[order[pos]];
+  const nextT = tracks[order[(pos + 1) % order.length]];
+  const msg = `🚌 ${els.onboard.textContent} ON BOARD   •   NOW PLAYING: ${t.title.toUpperCase()}   •   NEXT STOP: ${nextT.title.toUpperCase()}   •   HORN OK PLEASE   •   `;
+  els.marquee.textContent = msg + msg;
+}
+
+function setupPresence() {
+  try {
+    let pid = sessionStorage.getItem('bw_passenger');
+    if (!pid) { pid = crypto.randomUUID(); sessionStorage.setItem('bw_passenger', pid); }
+    const channel = window.supabaseClient.channel('bus-cabin', { config: { presence: { key: pid } } });
+    channel.on('presence', { event: 'sync' }, () => {
+      els.onboard.textContent = Object.keys(channel.presenceState()).length;
+      if (tracks.length) updateMarquee();
+    });
+    channel.subscribe(async status => { if (status === 'SUBSCRIBED') await channel.track({ at: Date.now() }); });
+  } catch (e) { /* presence is a nice-to-have — fail quietly */ }
+}
+
+let hornCtx;
+function playHorn() {
+  hornCtx = hornCtx || new (window.AudioContext || window.webkitAudioContext)();
+  if (hornCtx.state === 'suspended') hornCtx.resume();
+  const now = hornCtx.currentTime;
+  [220, 277].forEach(freq => {
+    const osc = hornCtx.createOscillator(), gain = hornCtx.createGain();
+    osc.type = 'sawtooth'; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.16, now + 0.03);
+    gain.gain.linearRampToValueAtTime(0.14, now + 0.45);
+    gain.gain.linearRampToValueAtTime(0, now + 0.6);
+    osc.connect(gain).connect(hornCtx.destination);
+    osc.start(now); osc.stop(now + 0.62);
+  });
+}
+
+const escapeHtml = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+</script>
+</body>
+</html>

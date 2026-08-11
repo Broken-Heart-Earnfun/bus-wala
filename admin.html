@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Driver's Cabin — Bus Wala</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚌</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: { diesel: '#0B2E33', board: '#061618', marigold: '#F4A300', chili: '#D42E12', tassel: '#E23E85', chrome: '#C9D6D9' },
+        fontFamily: { display: ['"Yatra One"', 'cursive'], sans: ['Mukta', 'sans-serif'] }
+      }
+    }
+  };
+</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-diesel text-chrome font-sans min-h-screen">
+
+<div class="max-w-2xl mx-auto px-4 py-10 sm:py-14">
+
+  <header class="text-center mb-8">
+    <p lang="hi" class="text-sm tracking-wide text-tassel/90 mb-1">ड्राइवर केबिन</p>
+    <h1 class="font-display text-3xl sm:text-4xl">
+      <span class="bg-gradient-to-r from-marigold via-chili to-tassel bg-clip-text text-transparent">Driver's Cabin</span>
+    </h1>
+    <p class="text-chrome/60 text-sm mt-1">Load cassettes onto the bus.</p>
+  </header>
+
+  <div id="app">
+
+    <form id="login-form" class="chrome-edge rounded-2xl p-6 max-w-sm mx-auto space-y-4">
+      <h2 class="font-display text-xl text-center">Show Your License</h2>
+      <label class="block text-sm">
+        <span class="text-chrome/70">Email</span>
+        <input id="email" type="email" required autocomplete="email" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-marigold">
+      </label>
+      <label class="block text-sm">
+        <span class="text-chrome/70">Password</span>
+        <input id="password" type="password" required autocomplete="current-password" class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-marigold">
+      </label>
+      <p id="login-error" class="hidden text-chili text-sm" role="alert"></p>
+      <button type="submit" class="w-full rounded-full py-2.5 bg-gradient-to-r from-marigold to-chili text-diesel font-semibold">Get In</button>
+    </form>
+
+    <div id="driver-view" class="hidden">
+      <div class="flex items-center justify-between mb-5">
+        <p class="text-sm text-chrome/60">Signed in as <span id="who" class="text-marigold"></span></p>
+        <button id="btn-signout" class="text-sm underline text-chrome/60 hover:text-chrome">Sign out</button>
+      </div>
+
+      <form id="upload-form" class="chrome-edge rounded-2xl p-6 space-y-4 mb-8">
+        <h2 class="font-display text-xl">Load a New Cassette</h2>
+        <label class="block text-sm">
+          <span class="text-chrome/70">Title</span>
+          <input id="f-title" required class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-marigold">
+        </label>
+        <label class="block text-sm">
+          <span class="text-chrome/70">Artist</span>
+          <input id="f-artist" required class="mt-1 w-full rounded-lg bg-black/30 border border-white/10 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-marigold">
+        </label>
+        <label class="block text-sm">
+          <span class="text-chrome/70">Audio file</span>
+          <input id="f-audio" type="file" accept="audio/*" required class="mt-1 w-full text-sm text-chrome/80">
+        </label>
+        <label class="block text-sm">
+          <span class="text-chrome/70">Cover photo (optional)</span>
+          <input id="f-cover" type="file" accept="image/*" class="mt-1 w-full text-sm text-chrome/80">
+        </label>
+        <p id="upload-status" class="text-sm text-chrome/60 min-h-[1.25rem]" role="status"></p>
+        <button type="submit" id="btn-upload" class="rounded-full px-6 py-2.5 bg-gradient-to-r from-marigold to-chili text-diesel font-semibold disabled:opacity-50">Load Onto the Bus</button>
+      </form>
+
+      <h2 class="font-display text-xl mb-3">Today's Manifest</h2>
+      <ul id="admin-list" class="space-y-2"></ul>
+    </div>
+
+  </div>
+
+  <footer class="text-center text-xs text-chrome/40 mt-10">
+    <a href="index.html" class="underline hover:text-chrome/70">Back to the bus</a>
+  </footer>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script>
+const client = window.supabaseClient;
+const loginForm = document.getElementById('login-form');
+const driverView = document.getElementById('driver-view');
+const loginError = document.getElementById('login-error');
+const whoEl = document.getElementById('who');
+
+if (!client) {
+  document.getElementById('app').innerHTML = `<div class="chrome-edge rounded-2xl p-6 max-w-sm mx-auto text-center">
+    <p class="font-display text-xl mb-2">Connect Supabase</p>
+    <p class="text-sm text-chrome/70">Paste your Project URL and anon key into <code class="text-marigold">supabase-config.js</code>, then reload.</p>
+  </div>`;
+} else {
+  init();
+}
+
+async function init() {
+  const { data } = await client.auth.getSession();
+  toggleView(data.session);
+  client.auth.onAuthStateChange((_event, session) => toggleView(session));
+
+  loginForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    loginError.classList.add('hidden');
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const { error } = await client.auth.signInWithPassword({ email, password });
+    if (error) { loginError.textContent = error.message; loginError.classList.remove('hidden'); }
+  });
+
+  document.getElementById('btn-signout').addEventListener('click', () => client.auth.signOut());
+  document.getElementById('upload-form').addEventListener('submit', handleUpload);
+}
+
+function toggleView(session) {
+  loginForm.classList.toggle('hidden', !!session);
+  driverView.classList.toggle('hidden', !session);
+  if (session) { whoEl.textContent = session.user.email; loadAdminList(); }
+}
+
+async function handleUpload(e) {
+  e.preventDefault();
+  const title = document.getElementById('f-title').value.trim();
+  const artist = document.getElementById('f-artist').value.trim();
+  const audioFile = document.getElementById('f-audio').files[0];
+  const coverFile = document.getElementById('f-cover').files[0];
+  const status = document.getElementById('upload-status');
+  const btn = document.getElementById('btn-upload');
+  if (!audioFile) { status.textContent = 'Pick an audio file first.'; return; }
+
+  btn.disabled = true;
+  status.textContent = 'Loading onto the bus…';
+
+  try {
+    const duration = await getAudioDuration(audioFile);
+
+    const audioPath = `${crypto.randomUUID()}${extOf(audioFile.name)}`;
+    const { error: audioErr } = await client.storage.from(window.BUCKETS.audio).upload(audioPath, audioFile);
+    if (audioErr) throw audioErr;
+    const audioUrl = client.storage.from(window.BUCKETS.audio).getPublicUrl(audioPath).data.publicUrl;
+
+    let coverPath = null, coverUrl = null;
+    if (coverFile) {
+      coverPath = `${crypto.randomUUID()}${extOf(coverFile.name)}`;
+      const { error: coverErr } = await client.storage.from(window.BUCKETS.covers).upload(coverPath, coverFile);
+      if (coverErr) throw coverErr;
+      coverUrl = client.storage.from(window.BUCKETS.covers).getPublicUrl(coverPath).data.publicUrl;
+    }
+
+    const { error: insertErr } = await client.from('tracks').insert({
+      title, artist, audio_url: audioUrl, audio_path: audioPath, cover_url: coverUrl, cover_path: coverPath, duration_seconds: duration
+    });
+    if (insertErr) throw insertErr;
+
+    status.textContent = "Cassette loaded — it's on the bus.";
+    e.target.reset();
+    loadAdminList();
+  } catch (err) {
+    status.textContent = `Couldn't load that one: ${err.message || err}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function loadAdminList() {
+  const list = document.getElementById('admin-list');
+  const { data, error } = await client.from('tracks').select('*').order('created_at', { ascending: false });
+  if (error) { list.innerHTML = `<li class="text-chili text-sm">Could not load the manifest.</li>`; return; }
+  if (!data.length) { list.innerHTML = `<li class="text-chrome/50 text-sm">No cassettes yet — load one above.</li>`; return; }
+  list.innerHTML = data.map(t => `
+    <li class="chrome-edge rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <p class="truncate font-medium">${escapeHtml(t.title)}</p>
+        <p class="truncate text-xs text-chrome/50">${escapeHtml(t.artist)}</p>
+      </div>
+      <button data-id="${t.id}" class="btn-offload text-xs text-chili underline shrink-0">Offload</button>
+    </li>
+  `).join('');
+  list.querySelectorAll('.btn-offload').forEach(btn => {
+    btn.addEventListener('click', () => offload(data.find(t => t.id === btn.dataset.id)));
+  });
+}
+
+async function offload(track) {
+  if (!confirm(`Offload "${track.title}"? This can't be undone.`)) return;
+  await client.storage.from(window.BUCKETS.audio).remove([track.audio_path]);
+  if (track.cover_path) await client.storage.from(window.BUCKETS.covers).remove([track.cover_path]);
+  await client.from('tracks').delete().eq('id', track.id);
+  loadAdminList();
+}
+
+function getAudioDuration(file) {
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(file);
+    const a = new Audio(url);
+    const done = val => { URL.revokeObjectURL(url); resolve(val); };
+    a.addEventListener('loadedmetadata', () => done(Math.round(a.duration) || null));
+    a.addEventListener('error', () => done(null));
+    setTimeout(() => done(null), 4000);
+  });
+}
+
+function extOf(name) { const m = name.match(/\.[a-zA-Z0-9]+$/); return m ? m[0] : ''; }
+
+const escapeHtml = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+</script>
+</body>
+</html>
